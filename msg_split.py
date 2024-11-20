@@ -18,12 +18,24 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
 
     soup = BeautifulSoup(source, 'html.parser') # creates a tag-tree
 
-    for child in soup.descendants:
-        if isinstance(child, NavigableString):
-            words = child.split()
-            print('text', words)
-        elif isinstance(child, Tag):
-            print('tag', [str(child)])
+    def extract_content(element):
+        # Если элемент — текст, разбиваем его на слова
+        if isinstance(element, NavigableString):
+            words = str(element).split()  # Разделяем текст на слова
+            return words
+        elif isinstance(element, Tag):
+            # Если элемент — тег, оставляем его как есть
+            curr_str = str(element)
+            end_tag_ind = curr_str.index('>')
+            curr_tag = curr_str[:end_tag_ind+1]
+            return [curr_tag]
+        return []
+
+    result = []
+    for child in soup.descendants:  # Рекурсивно обходим все элементы
+        result.extend(extract_content(child))
+
+    return result
 
 
 
@@ -31,14 +43,15 @@ def test():
     source = "<p>Hello, <b>world</b>!</p>"
     max_len = 10
     res = split_message(source, max_len)
-    # for _ in res:
-    #     print(_)
+    # print()
+    for item in res:
+        print(repr(item))
 
 
 # Тестирование функции
 def test():
-    # source = "<p>Hello, <b>world</b>! This is a <i>test</i> message with <u>HTML</u> tags.</p>"
-    source = "<p>Hello, <b>world</b>! This is a <i>long</i> message.</p>"
+    source = "<p>Hello, <b>world</b>! This is a <i>test</i> message with <u>HTML</u> tags.</p>"
+    # source = "<p>Hello, <b>world</b>! This is a <i>long</i> message.</p>"
     max_len = 20
     res = split_message(source, max_len)
     for chunk in res:
