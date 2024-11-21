@@ -7,57 +7,49 @@ MAX_LEN = 4096
 BLOCK_TAGS = ["p", "b", "strong", "i", "ul", "ol", "div", "span"]
 
 
+
+
 def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
     """
     Splits the original message (`source`) into fragments of the specified
     length (`max_len`)
     """
-    curr_fragment = []
-    curr_fragment_len = 0
-    open_tags_stack = []
+    chunk = ''
+    tags = [] # list so that i can go through to form open and closing tags
+    soup = BeautifulSoup(source, 'html.parser')
 
-    soup = BeautifulSoup(source, 'html.parser') # creates a tag-tree
-
-    def extract_content(element):
-        # Если элемент — текст, разбиваем его на слова
-        if isinstance(element, NavigableString):
-            words = str(element).split()  # Разделяем текст на слова
-            return words
-        elif isinstance(element, Tag):
-            # Если элемент — тег, оставляем его как есть
-            curr_str = str(element)
-            end_tag_ind = curr_str.index('>')
-            curr_tag = curr_str[:end_tag_ind+1]
-            return [curr_tag]
-        return []
-
-    result = []
-    for child in soup.descendants:  # Рекурсивно обходим все элементы
-        result.extend(extract_content(child))
-
-    return result
+    def process_tag(tag):
+        nonlocal chunk
+        tag_name = tag.name
+        tag_str = f'<{tag.name}>'
+        tags_brackets_len = len(tag_name) * 2 + 5 # 2 tag names + <> + </>
+        tags.append(tag.name)
+        chunk_len = len(chunk)
+        if tags_brackets_len + chunk_len <= max_len:
+            chunk += tag_str
+        return chunk
 
 
-
-def test():
-    source = "<p>Hello, <b>world</b>!</p>"
-    max_len = 10
-    res = split_message(source, max_len)
-    # print()
-    for item in res:
-        print(repr(item))
+    # go through html
+    for child in soup.recursiveChildGenerator():
+        if isinstance(child, Tag):  # Обрабатываем тег
+            print(process_tag(child))
 
 
-# Тестирование функции
-def test():
-    source = "<p>Hello, <b>world</b>! This is a <i>test</i> message with <u>HTML</u> tags.</p>"
-    # source = "<p>Hello, <b>world</b>! This is a <i>long</i> message.</p>"
-    max_len = 20
-    res = split_message(source, max_len)
-    for chunk in res:
-        print(chunk)
+# Тестирование
+html = "<p>Hello, <b>world</b>!</p>"
+max_len = 10
 
-if __name__ == "__main__":
-    test()
+result = split_message(html, max_len)
+
+for chunk in result:
+    print(repr(chunk))  # Выводим сегменты
+
+
+
+
+
+# if __name__ == "__main__":
+#     test()
 
     
