@@ -55,17 +55,82 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
         return chunk
 
 
-    # go through html
-    for child in soup.recursiveChildGenerator():
-        if isinstance(child, Tag):  # Обрабатываем тег
-            print(process_tag(child))
-        elif isinstance(child, NavigableString):
-            print(process_text(child))
+    # # go through html ver 1 - proplem to identificate the closing tag
+    # for child in soup.recursiveChildGenerator():
+    #     if isinstance(child, Tag):  # Обрабатываем тег
+    #         print(process_tag(child))
+    #     elif isinstance(child, NavigableString):
+    #         print(process_text(child))
 
+    # go through html - ver 2
+    chunks = []
+    len_tags = 0
+    skipped_tags_count = 0
+    chunk = ''
+    for el in soup.descendants:
+        if isinstance(el, Tag):
+            if skipped_tags_count:
+                skipped_tags_count -= 1
+                continue
+            tag_content = el.contents
+            if not el.contents:  # Тег не содержит других элементов (например, <br>)
+                print(f"Self-closing or empty tag: <{el.name}>")
+                chunk += f'<{el.name}></{el.name}>'
+                continue
+            tags.append(el.name)
+            chunk += f'<{el.name}>'
+            for part in tag_content:
+                if isinstance(part, Tag):
+                    # check len
+                    # if ok - add to chunk and raise skipped_counter
+                    # if not - close all opened tags and return 1st chunk
+                    # and start new chunk with current tag
+                    print('curr part', part) # debug
+                    for t in tags:
+                        len_tags += len(f'</{t}>')
+                    if len(chunk) + len_tags + len(part) < max_len:
+                        chunk += str(part)
+                        skipped_tags_count += 1
+                    else:
+                        for t in tags:
+                            chunk += f'</{t}>'
+                        chunks.append(chunk)
+                        chunk = ''
+                        for t in tags:
+                            chunk += f'<{t}>'
+
+                else: # should be str
+                    # check len
+                    # check len
+                    # if ok - add to chunk
+                    # if not - close all opened tags and return 1st chunk
+                    # and start new chunk with current tag
+                    print('curr part', part) # debug
+                    for t in tags:
+                        len_tags += len(f'</{t}>')
+                    if len(chunk) + len_tags + len(part) <= max_len:
+                        chunk += part
+                    else:
+                        for t in tags:
+                            chunk += f'</{t}>'
+                        chunks.append(chunk)
+                        chunk = ''
+                        for t in tags:
+                            chunk += f'<{t}>'
+                            continue
+                    
+
+
+        
+
+        
 
 # Тестирование
-html = "<p>Hello, <b>world</b>!</p>"
-max_len = 50
+html = "<p>Hello, <b>world</b>!</p>" # total 27
+template1 = "<p>Hello, <b>world</b>!</p>"
+template2 = "<p>!</p>"
+print(len(html), len(template1), len(template2))
+max_len = 27
 
 result = split_message(html, max_len)
 
