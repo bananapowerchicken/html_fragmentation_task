@@ -13,6 +13,13 @@ def generate_closing_tags(tag_names):
     return closing_tags
 
 
+def generate_opening_tags(tag_names):
+    closing_tags = ''
+    for t in tag_names:
+        closing_tags += f'<{t}>'
+    return closing_tags
+
+
 def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
     """
     Splits the original message (`source`) into fragments of the specified
@@ -27,104 +34,93 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
     words = []
 
 
-    def end_fragment():
-        pass
+    def start_fragment():
+        nonlocal chunk, chunks, tags
+        print('Start fragment') # debug
+        
+        chunk = generate_opening_tags(tags)
 
 
     def end_fragment():
+        nonlocal chunk, chunks, tags
+        print('End fragment') # debug
+        
+        closing_tags = generate_closing_tags(tags)
+        chunk += closing_tags
+        print('Ended gragment: ', chunk)
+        chunks.append(chunk)        
+
+
+
+
+    def process_empty_tag():
         pass
 
 
     def process_tag(el):
-        nonlocal chunk, chunks
+        nonlocal chunk, chunks, tags
+        
+        print('Tag: ', el.name) # debug
+        print('Tag contents: ', el.contents)
 
-        # if tag is empty we can add it to curr chunk or raise error
-        if not el.contents:
-                print('empty tag')
-                curr_tags = f'<{el.name}></{el.name}>'
-                if len(curr_tags) + len(chunk) <= max_len:
-                    chunk += curr_tags
-                else:
-                    print("Error: cannot close tag {el.name}")
-        else:
-            # start filling curr chunk
-            chunk += f'<{el.name}>'
+        # if len is ok
+        # add to tags and append to chunk        
+        # if len is more tha max len - end current fragment and start new one
+        len_curr_tag = len(f'<{el.name}>') + len(f'</{el.name}>')
+        len_chunk = len(chunk) # includes previous open tags
+        len_closing_tags = len(generate_closing_tags(tags))
+
+        if len_chunk + len_closing_tags + len_curr_tag <= max_len:
             tags.append(el.name)
+            chunk += f'<{el.name}>'
+        else:
+            end_fragment()
+            start_fragment()
+        
+        # need to process every item
+        tag_content = el.contents
+        for itm in tag_content:
+            if isinstance(itm, NavigableString):
+                process_text(itm)
+            elif isinstance(itm, Tag):
+                len_itm = len(str(itm))
+                len_chunk = len(chunk)
+                len_closing_tags = len(generate_closing_tags(tags))
+                if len_chunk + len_closing_tags + len_itm <= max_len:
+                    process_text(itm)
+                else:
+                    process_tag(itm)
 
-            # working on inner elements of curr tag
-            el_contents = el.contents # for debug
-            for c in el_contents:
-                print('c : ', c)
-                if isinstance(c, Tag):            
-                    process_tag(c, chunk)
-                elif isinstance(c, NavigableString):
-                    process_text(c)
 
     
     def process_text(el):
-        print('processing text: ', el)
-        closing_tags = generate_closing_tags(tags)
-        curr_len = len(chunk) + len(closing_tags) + len(chunk)
-        if curr_len <= max_len:
-            chunk += str(el) + closing_tags
+        nonlocal chunk, chunks, tags
+        print('Text: ', el) # debug
+
+        len_curr_text = len(str(el))
+        len_chunk = len(chunk) # includes previous open tags
+        len_closing_tags = len(generate_closing_tags(tags))
+
+        if len_chunk + len_closing_tags + len_curr_text <= max_len:
+            chunk += str(el)
         else:
-            print('Need to cut fragment')
             end_fragment()
             start_fragment()
+
+
             
 
 
 
     # cycle by every elem in html-doc
     for el in soup.descendants:
-        print('el: ', el)
-        if isinstance(el, Tag):            
-            process_tag(el, chunk)
+        print('-------------')
+        print(f'el: ', el)
+        if isinstance(el, Tag):
+            process_tag(el)
         elif isinstance(el, NavigableString):
-            process_text(el)
-
-
-        #         # go through all the content of current tag
-        #         # it can be added totally or split into parts
-        #         for content in el.contents:
-        #             print(content)
-        #             if isinstance(content, NavigableString):
-        #                 # count len of closing tags for current moment to count total chunk len
-        #                 len_close_tags = 0
-        #                 for t in tags:
-        #                     len_close_tags += len(f'</{t}>')
-
-        #                 if len(content) + len(chunk) + len_close_tags <= max_len:
-        #                     chunk += content
-        #                 else:
-        #                     # end chunk
-        #                     for t in tags:
-        #                         chunk += f'</{t}>'
-        #                     chunks.append(chunk)
-        #                     chunk = ''
-        #                     break
-        #             elif isinstance(content, Tag):
-        #                 if not content.contents:
-        #                     print('empty tag')
-        #                     curr_tags = f'<{el.name}></{el.name}>'
-        #                     if len(curr_tags) + len(chunk) <= max_len:
-        #                         chunk += curr_tags
-        #                     else:
-        #                         print("Error: cannot close tag {el.name}")
-        #                         break
-        #                 else:
-        #                     # start filling curr chunk
-        #                     chunk += f'<{content.name}>'
-        #                     tags.append(content.name)
-
-
-        # elif isinstance(el, NavigableString):
-        #     words.append(str(el))
-            
-
-    # print(tags)
-    # print(words)
-
+            process_text(el)        
+      
     return chunks
 
 
@@ -135,10 +131,10 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
 
 # Тестирование
 html = "<p>Hello, <b>world</b>!</p>"      # total 27
-template1 = "<p>Hello, <b>world</b>!</p>" # total 27
+template1 = "<p>Hello, <b>world</b></p>"  # total 27
 template2 = "<p>!</p>"                    # total 8
 print(len(html), len(template1), len(template2))
-max_len = 27
+max_len = 26
 
 result = split_message(html, max_len)
 
