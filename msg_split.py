@@ -32,6 +32,8 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
     soup = BeautifulSoup(html, 'html.parser')
     tags = [] # opened tags
     words = []
+    inner_tags_count = 0 # amount of tags need to pass, since they are already processed on other
+    inner_text_count = 0
 
 
     def start_fragment():
@@ -39,6 +41,7 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
         print('Start fragment') # debug
         
         chunk = generate_opening_tags(tags)
+        print('Started fragment: ', chunk)
 
 
     def end_fragment():
@@ -47,7 +50,7 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
         
         closing_tags = generate_closing_tags(tags)
         chunk += closing_tags
-        print('Ended gragment: ', chunk)
+        print('Ended fragment: ', chunk)
         chunks.append(chunk)        
 
 
@@ -58,7 +61,7 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
 
 
     def process_tag(el):
-        nonlocal chunk, chunks, tags
+        nonlocal chunk, chunks, tags, inner_tags_count, inner_text_count
         
         print('Tag: ', el.name) # debug
         print('Tag contents: ', el.contents)
@@ -77,12 +80,14 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
             end_fragment()
             start_fragment()
         
-        # need to process every item
+        # need to process every item in tag
         tag_content = el.contents
         for itm in tag_content:
             if isinstance(itm, NavigableString):
+                inner_text_count += 1
                 process_text(itm)
             elif isinstance(itm, Tag):
+                inner_tags_count += 1
                 len_itm = len(str(itm))
                 len_chunk = len(chunk)
                 len_closing_tags = len(generate_closing_tags(tags))
@@ -106,20 +111,30 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
         else:
             end_fragment()
             start_fragment()
+            # process_text(el)
 
 
             
 
 
-
+    
     # cycle by every elem in html-doc
     for el in soup.descendants:
         print('-------------')
         print(f'el: ', el)
         if isinstance(el, Tag):
-            process_tag(el)
+            if inner_tags_count:
+                inner_tags_count -= 1
+                continue
+            else:
+                process_tag(el)
         elif isinstance(el, NavigableString):
-            process_text(el)        
+            if inner_text_count:
+                inner_text_count -= 1
+                continue
+            else:
+                process_text(el)
+    chunks.append(chunk)
       
     return chunks
 
