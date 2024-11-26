@@ -134,7 +134,12 @@ def split_message(source: str, max_len=MAX_LEN):# -> GeneratorType[str]:
                 continue
             else:
                 process_text(el)
+
+    # add and finish last chunk
+    closing_tags = generate_closing_tags(tags)
+    chunk += closing_tags
     chunks.append(chunk)
+    
       
     return chunks
 
